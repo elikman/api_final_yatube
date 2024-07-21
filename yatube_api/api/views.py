@@ -3,7 +3,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import filters, mixins, viewsets
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import (IsAuthenticated,
-                                        IsAuthenticatedOrReadOnly)
+                                        IsAuthenticatedOrReadOnly,
+                                        AllowAny)
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from posts.models import Comment, Follow, Group, Post
@@ -17,8 +18,8 @@ User = get_user_model()
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
-    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly)
+    authentication_classes = (JWTAuthentication,)
     pagination_class = LimitOffsetPagination
 
     def perform_create(self, serializer):
@@ -27,18 +28,16 @@ class PostViewSet(viewsets.ModelViewSet):
 
 class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
-    authentication_classes = [JWTAuthentication]
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly)
+    authentication_classes = (JWTAuthentication,)
 
     def get_queryset(self):
-        return Comment.objects.filter(post_id=self.kwargs['post_id'])
+        post = get_object_or_404(Post, id=self.kwargs['post_id'])
+        return post.comments.all()
 
     def perform_create(self, serializer):
         post = get_object_or_404(Post, id=self.kwargs['post_id'])
         serializer.save(author=self.request.user, post=post)
-
-    def perform_update(self, serializer):
-        serializer.save()
 
 
 class FollowViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
@@ -59,5 +58,4 @@ class FollowViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
